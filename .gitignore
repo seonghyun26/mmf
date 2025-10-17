@@ -1,6 +1,9 @@
 *output*
 *wandb*
 *data*
+*catboost_info*
+*__pycache__*
+
 
 *.pyc
 *.log

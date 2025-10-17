@@ -10,22 +10,21 @@ from omegaconf import DictConfig, OmegaConf
 from src import *
 
 
-def run_model(cfg: DictConfig, model: Any):
-    task_list = OmegaConf.select(cfg, "job.task", default=["caco2_wang"])
+def run_model(cfg: DictConfig):
+    task_list = OmegaConf.select(cfg, "job.tasks", default=[])
     logging.info(f"Task list: {task_list}")
     
     for task in task_list:
-        logging.info(f"Running model for task: {task}")
+        logging.info(f"Running task: {task}")
+        model = load_model(cfg, task)
+        model_mode = OmegaConf.select(cfg, "model.mode")
         
         # Train or fine-tune pre-trained model
-        model_mode = OmegaConf.select(cfg, "model.mode", default="train")
         results = {}
         if model_mode == "pre-trained":
-            logging.info("Fine-tuning pre-trained model per task")
             results.update(fine_tune_model(cfg, model, task))
         
         elif model_mode == "train":
-            logging.info("Training model per task")
             results.update(train_model(cfg, model, task))
 
         else:
@@ -57,8 +56,7 @@ def main(cfg: DictConfig) -> None:
     logging.info(cfg)
     
     # Run model
-    model = load_model(cfg)
-    run_model(cfg, model)
+    run_model(cfg)
     wandb.finish()
 
 if __name__ == "__main__":

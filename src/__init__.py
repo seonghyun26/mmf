@@ -1,3 +1,4 @@
+from .train import * # noqa
 from .model import * # noqa
 from .data import * # noqa
 from .plot import * # noqa

@@ -1,6 +1,6 @@
 defaults:
-- model: catboost-per-task
-- job: basic
+- model: catboost
+- job: debug
 
 hydra:
   run:

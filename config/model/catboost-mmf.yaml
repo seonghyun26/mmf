@@ -1,0 +1,7 @@
+name: catboost
+# mode: train
+# params:
+#   random_strength: 2
+#   verbose: 0
+#   task_type: 'GPU'
+#   devices: '0'

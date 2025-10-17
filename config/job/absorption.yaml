@@ -1,0 +1,8 @@
+max_seed: 5
+tasks:
+- caco2_wang
+- hia_hou
+- pgp_broccatelli
+- bioavailability_ma
+- lipophilicity_astrazeneca
+- solubility_aqsoldb

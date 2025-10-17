@@ -1,3 +1,118 @@
+import catboost as cb
+
+from tqdm import tqdm
+from omegaconf import DictConfig, OmegaConf
+
+from tdc.benchmark_group import admet_group
+from tdc.metadata import admet_metrics
+
+from .base import ModelWrapper
+
+
+group = admet_group(path = './data/')
+
+
+class Catboost(ModelWrapper):
+    def __init__(self, cfg: DictConfig, task: str):
+        super().__init__(cfg, task)
+        self.admet_task_config = {
+            'caco2_wang': ('regression', False),
+            'bioavailability_ma': ('binary', False),
+            'lipophilicity_astrazeneca': ('regression', False),
+            'solubility_aqsoldb': ('regression', False),
+            'hia_hou': ('binary', False),
+            'pgp_broccatelli': ('binary', False),
+            'bbb_martins': ('binary', False),
+            'ppbr_az': ('regression', False),
+            'vdss_lombardo': ('regression', True),
+            'cyp2c9_veith': ('binary', False),
+            'cyp2d6_veith': ('binary', False),
+            'cyp3a4_veith': ('binary', False),
+            'cyp2c9_substrate_carbonmangels': ('binary', False),
+            'cyp2d6_substrate_carbonmangels': ('binary', False),
+            'cyp3a4_substrate_carbonmangels': ('binary', False),
+            'half_life_obach': ('regression', True),
+            'clearance_hepatocyte_az': ('regression', True),
+            'clearance_microsome_az': ('regression', True),
+            'ld50_zhu': ('regression', False),
+            'herg': ('binary', False),
+            'ames': ('binary', False),
+            'dili': ('binary', False)
+        }
+        
+        task_type, task_log_scale = self.admet_task_config[self.task]
+        if task_type == "regression":
+            params = OmegaConf.to_container(self.cfg.model.params, resolve=True)
+            params['loss_function'] = 'MAE'
+            self.model = cb.CatBoostRegressor(**params)
+        elif task_type == "binary":
+            params = OmegaConf.to_container(self.cfg.model.params, resolve=True)
+            params['loss_function'] = 'Logloss'
+            self.model = cb.CatBoostClassifier(**params)
+        else:
+            raise ValueError(f"Invalid task type: {task_type}")
+    
+
+    def train(self):
+        metric_name = admet_metrics.get(self.task, )
+        predictions_list = []
+        results = {}
+        
+        for seed in tqdm(range(self.cfg.job.max_seed)):
+            # Initialize a fresh model for each seed to ensure proper randomization
+            task_type, task_log_scale = self.admet_task_config[self.task]
+            if task_type == "regression":
+                model = cb.CatBoostRegressor(**self.model.get_params())
+            elif task_type == "binary":
+                model = cb.CatBoostClassifier(**self.model.get_params())
+            model.set_params(random_seed=seed)
+            
+            benchmark = group.get(self.task)
+            predictions = {}
+            name = benchmark['name']
+            train, test = benchmark['train_val'], benchmark['test']
+            X_train = get_fingerprints(train['Drug'])
+            X_test = get_fingerprints(test['Drug'])
+            
+            if task_type == "regression":
+                Y_scaler = scaler(log=task_log_scale)
+                Y_scaler.fit(train['Y'].values)
+                train['Y_scale'] = Y_scaler.transform(train['Y'].values)
+                model.fit(X_train, train['Y_scale'].values)
+                y_pred_test = Y_scaler.inverse_transform(model.predict(X_test)).reshape(-1)
+            
+            elif task_type == "binary":
+                model.fit(X_train, train['Y'].values)
+                y_pred_test = model.predict_proba(X_test)[:, 1]
+            
+            predictions[name] = y_pred_test
+            single_result = group.evaluate(predictions)[self.task]
+            single_result[f"{metric_name}/{seed}"] = single_result.pop(metric_name)
+            results.update(single_result)
+            predictions_list.append(predictions)
+        
+        averaged_results = group.evaluate_many(predictions_list)[self.task]
+        averaged_results[f"{metric_name}/mean"], averaged_results[f"{metric_name}/std"] = averaged_results.pop()
+        results.update({
+            f"{metric_name}/mean": averaged_results[0],
+            f"{metric_name}/std": averaged_results[1],
+        })
+        
+        return model, results
+
+    def save(self, output_dir: str):
+        pass
+        # self.model.save_model(f"{output_dir}/{self.task}.cbm")
+        # with open(f"{output_dir}/{self.task}.pkl", "wb") as f:
+        #     pickle.dump(self.model, f)
+    
+    # def load(self, output_dir: str):
+    #     self.model = cb.CatBoostRegressor.load_model(f"{output_dir}/{self.task}.cbm")
+    #     with open(f"{output_dir}/{self.task}.pkl", "rb") as f:
+    #         self.model = pickle.load(f)
+    
+    
+    
 import numpy as np
 
 from sklearn import preprocessing
