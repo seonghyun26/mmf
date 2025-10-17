@@ -1,0 +1,22 @@
+# Example configuration for multi-task learning
+defaults:
+  - model: mmf-multi-task
+  - job: basic
+
+# Override job configuration for multiple tasks
+job:
+  max_seed: 3
+  task: ["caco2_wang", "bioavailability_ma", "lipophilicity_astrazeneca"]
+
+# Data configuration
+data:
+  path: "data/"
+  # benchmark will be set per task during multi-task training
+
+# Device configuration (use GPU if available)
+device: "cuda"
+
+# Experiment tracking
+wandb:
+  project: "admet-multitask"
+  tags: ["multi-task", "mmf", "admet"]

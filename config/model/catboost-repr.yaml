@@ -1,0 +1,5 @@
+name: catboost
+mode: train
+train:
+  epoch: 100
+mmf: True

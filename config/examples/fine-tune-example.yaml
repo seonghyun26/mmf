@@ -1,0 +1,28 @@
+# Example configuration for fine-tuning
+defaults:
+  - model: fine-tune
+  - job: basic
+
+# Override model configuration for fine-tuning
+model:
+  name: "mmf"  # Fine-tune an MMF model
+  pretrained_path: "models/pretrained_mmf_model.pkl"
+  fine_tune:
+    learning_rate: 5e-5
+    epochs: 5
+    data_ratio: 0.8  # Use 80% of available data
+  freeze_layers: ["encoder"]  # Freeze encoder, fine-tune classifier
+
+# Target specific task for fine-tuning
+job:
+  task: ["dili"]  # Fine-tune on DILI task specifically
+
+# Data configuration
+data:
+  path: "data/"
+  benchmark: "dili"
+
+# Experiment tracking
+wandb:
+  project: "admet-finetune"
+  tags: ["fine-tune", "dili", "transfer-learning"]
