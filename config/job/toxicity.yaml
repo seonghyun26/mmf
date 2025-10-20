@@ -1,0 +1,6 @@
+max_seed: 5
+tasks:
+- herg
+- ames
+- dili
+- ld50_zhu

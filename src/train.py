@@ -1,4 +1,5 @@
 import hydra
+import wandb
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -34,12 +35,23 @@ def load_model(cfg: DictConfig, task: str):
     
 
 def train_model(cfg: DictConfig, model_wrapper: Any, task: str):
-    output_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/model"
-    os.makedirs(output_dir, exist_ok=True)    
+    output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    wandb.init(
+        project="admet",
+        entity="eddy26",
+        config=OmegaConf.to_container(cfg, resolve=True),
+        dir=output_dir,
+    )
     
+    # Train model
     logging.info(f"Training model for task: {task}")
     trained_model, results = model_wrapper.train()    
-    # model_wrapper.save(output_dir)
+    wandb.log(results)
+    
+    # Save results
+    save_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/model"
+    os.makedirs(save_dir, exist_ok=True)    
+    model_wrapper.save(save_dir)
     
     return results
 

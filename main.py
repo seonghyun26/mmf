@@ -30,7 +30,6 @@ def run_model(cfg: DictConfig):
         else:
             raise ValueError(f"Invalid model mode: {model_mode}")
         
-        wandb.log(results)
 
 @hydra.main(
     config_path="config",
@@ -39,13 +38,8 @@ def run_model(cfg: DictConfig):
 )
 def main(cfg: DictConfig) -> None:
     # Check configs and set logging
-    run_dir = os.getcwd()
-    wandb.init(
-        project="admet",
-        entity="eddy26",
-        config=OmegaConf.to_container(cfg, resolve=True),
-        dir=run_dir,
-    )
+    # run_dir = os.getcwd()
+    # output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logging.basicConfig(
         format='%(asctime)s - %(module)s - %(levelname)s - %(message)s',
         level=logging.DEBUG,

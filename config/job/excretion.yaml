@@ -1,0 +1,5 @@
+max_seed: 5
+tasks:
+- half_life_obach
+- clearance_microsome_az
+- clearance_hepatocyte_az

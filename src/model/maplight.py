@@ -92,7 +92,6 @@ class Catboost(ModelWrapper):
             predictions_list.append(predictions)
         
         averaged_results = group.evaluate_many(predictions_list)[self.task]
-        averaged_results[f"{metric_name}/mean"], averaged_results[f"{metric_name}/std"] = averaged_results.pop()
         results.update({
             f"{metric_name}/mean": averaged_results[0],
             f"{metric_name}/std": averaged_results[1],
