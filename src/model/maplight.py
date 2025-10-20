@@ -1,13 +1,16 @@
+import hydra
 import catboost as cb
+import os
 
 from tqdm import tqdm
+from typing import Any
 from omegaconf import DictConfig, OmegaConf
 
 from tdc.benchmark_group import admet_group
 from tdc.metadata import admet_metrics
 
-from .base import ModelWrapper
 
+from .base import ModelWrapper
 
 group = admet_group(path = './data/')
 
@@ -57,6 +60,8 @@ class Catboost(ModelWrapper):
         metric_name = admet_metrics.get(self.task, )
         predictions_list = []
         results = {}
+        plot_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/{self.task}"
+        os.makedirs(plot_dir, exist_ok=True)
         
         for seed in tqdm(range(self.cfg.job.max_seed)):
             # Initialize a fresh model for each seed to ensure proper randomization
@@ -66,6 +71,7 @@ class Catboost(ModelWrapper):
             elif task_type == "binary":
                 model = cb.CatBoostClassifier(**self.model.get_params())
             model.set_params(random_seed=seed)
+            plot_file = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/{self.task}/{seed}.html"
             
             benchmark = group.get(self.task)
             predictions = {}
@@ -78,11 +84,19 @@ class Catboost(ModelWrapper):
                 Y_scaler = scaler(log=task_log_scale)
                 Y_scaler.fit(train['Y'].values)
                 train['Y_scale'] = Y_scaler.transform(train['Y'].values)
-                model.fit(X_train, train['Y_scale'].values)
+                model.fit(
+                    X_train, train['Y_scale'].values,
+                    plot=self.cfg.model.fit.plot,
+                    plot_file=plot_file
+                )
                 y_pred_test = Y_scaler.inverse_transform(model.predict(X_test)).reshape(-1)
             
             elif task_type == "binary":
-                model.fit(X_train, train['Y'].values)
+                model.fit(
+                    X_train, train['Y'].values,
+                    plot=self.cfg.model.fit.plot,
+                    plot_file=plot_file
+                )
                 y_pred_test = model.predict_proba(X_test)[:, 1]
             
             predictions[name] = y_pred_test
@@ -90,6 +104,9 @@ class Catboost(ModelWrapper):
             single_result[f"{metric_name}/{seed}"] = single_result.pop(metric_name)
             results.update(single_result)
             predictions_list.append(predictions)
+            
+            # Save model for each seed
+            self.save(model, seed)
         
         averaged_results = group.evaluate_many(predictions_list)[self.task]
         results.update({
@@ -97,20 +114,18 @@ class Catboost(ModelWrapper):
             f"{metric_name}/std": averaged_results[1],
         })
         
-        return model, results
+        return results
 
-    def save(self, output_dir: str):
-        pass
-        # self.model.save_model(f"{output_dir}/{self.task}.cbm")
-        # with open(f"{output_dir}/{self.task}.pkl", "wb") as f:
-        #     pickle.dump(self.model, f)
-    
-    # def load(self, output_dir: str):
-    #     self.model = cb.CatBoostRegressor.load_model(f"{output_dir}/{self.task}.cbm")
-    #     with open(f"{output_dir}/{self.task}.pkl", "rb") as f:
-    #         self.model = pickle.load(f)
-    
-    
+    def save(self, model: Any, seed: int):
+        save_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/model"
+        os.makedirs(save_dir, exist_ok=True)
+        format = self.cfg.model.format
+        model.save_model(
+            fname=f"{save_dir}/{seed}.{format}",
+            format=format,
+            export_parameters=None,
+            pool=None
+        )
     
 import numpy as np
 
