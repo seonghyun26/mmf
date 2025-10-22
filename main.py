@@ -49,9 +49,7 @@ def main(cfg: DictConfig) -> None:
     logging.info(f"Output directory  : {hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}")
     logging.info(cfg)
     
-    # Run model
     run_model(cfg)
-    wandb.finish()
 
 if __name__ == "__main__":
     ne.set_num_threads(16)

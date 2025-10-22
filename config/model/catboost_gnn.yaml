@@ -1,0 +1,10 @@
+name: catboost_gnn
+mode: train
+format: cbm
+params:
+  random_strength: 2
+  verbose: 0
+  task_type: 'GPU'
+  devices: '0'
+fit:
+  plot: True

@@ -11,10 +11,8 @@ from omegaconf import DictConfig, OmegaConf
 from .model import *
 model_classes = {
     "catboost": Catboost,
-    # Add new models here as you create them
-    # "xgboost": XGBoost,
-    # "randomforest": RandomForest,
-    # "neuralnetwork": NeuralNetwork,
+    "catboost_gnn": CatboostGNN,
+    "gradientboost": GradientBoost,
 }
 
 
@@ -51,6 +49,7 @@ def train_model(cfg: DictConfig, model_wrapper: Any, task: str):
     logging.info(f"Training model for task: {task}")
     results = model_wrapper.train()    
     wandb.log(results)
+    wandb.finish()
     
     return results
 
