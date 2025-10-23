@@ -16,19 +16,26 @@ def run_model(cfg: DictConfig):
     
     for task in task_list:
         logging.info(f"Running task: {task}")
-        model = load_model(cfg, task)
-        model_mode = OmegaConf.select(cfg, "model.mode")
-        
-        # Train or fine-tune pre-trained model
-        results = {}
-        if model_mode == "pre-trained":
-            results.update(fine_tune_model(cfg, model, task))
-        
-        elif model_mode == "train":
-            results.update(train_model(cfg, model, task))
+        try:
+            model = load_model(cfg, task)
+            model_mode = OmegaConf.select(cfg, "model.mode")
+            
+            # Train or fine-tune pre-trained model
+            results = {}
+            if model_mode == "pre-trained":
+                results.update(fine_tune_model(cfg, model, task))
+            
+            elif model_mode == "train":
+                results.update(train_model(cfg, model, task))
 
-        else:
-            raise ValueError(f"Invalid model mode: {model_mode}")
+            else:
+                raise ValueError(f"Invalid model mode: {model_mode}")
+            
+            logging.info(f"Results: {results}")
+        
+        except Exception as e:
+            logging.error(f"Error running task {task}: {e}")
+            raise e
         
 
 @hydra.main(

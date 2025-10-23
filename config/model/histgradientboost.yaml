@@ -1,0 +1,6 @@
+name: histgradientboost
+mode: train
+params:
+  learning_rate: 0.1
+  max_iter: 100
+format: pkl

@@ -13,6 +13,7 @@ model_classes = {
     "catboost": Catboost,
     "catboost_gnn": CatboostGNN,
     "gradientboost": GradientBoost,
+    "histgradientboost": HistGradientBoost,
 }
 
 
@@ -33,10 +34,9 @@ def load_model(cfg: DictConfig, task: str):
     
 
 def train_model(cfg: DictConfig, model_wrapper: Any, task: str):
-    # Copy config and change tasks to the argument task
+    # Configs
     cfg_copy = OmegaConf.create(OmegaConf.to_yaml(cfg))
     cfg_copy.job.tasks = task
-    
     output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     wandb.init(
         project="admet",
@@ -54,13 +54,21 @@ def train_model(cfg: DictConfig, model_wrapper: Any, task: str):
     return results
 
 def fine_tune_model(cfg: DictConfig, model_wrapper: Any, task: str):
-    output_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/model"
-    os.makedirs(output_dir, exist_ok=True)
+    # Configs
+    cfg_copy = OmegaConf.create(OmegaConf.to_yaml(cfg))
+    cfg_copy.job.tasks = task
+    output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    wandb.init(
+        project="admet",
+        entity="eddy26",
+        config=OmegaConf.to_container(cfg_copy, resolve=True),
+        dir=output_dir,
+    )
     
+    # Fine-tune model
     logging.info(f"Fine-tuning model for task: {task}")
-    finetuned_model, results = model_wrapper.fine_tune()
-    print(results)
-    
-    model_wrapper.save(output_dir)
+    results = model_wrapper.fine_tune()
+    wandb.log(results)
+    wandb.finish()
     
     return results
