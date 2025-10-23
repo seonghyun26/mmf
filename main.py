@@ -8,34 +8,6 @@ import numexpr as ne
 from typing import Dict, Any
 from omegaconf import DictConfig, OmegaConf
 from src import *
-
-
-def run_model(cfg: DictConfig):
-    task_list = OmegaConf.select(cfg, "job.tasks", default=[])
-    logging.info(f"Task list: {task_list}")
-    
-    for task in task_list:
-        logging.info(f"Running task: {task}")
-        try:
-            model = load_model(cfg, task)
-            model_mode = OmegaConf.select(cfg, "model.mode")
-            
-            # Train or fine-tune pre-trained model
-            results = {}
-            if model_mode == "pre-trained":
-                results.update(fine_tune_model(cfg, model, task))
-            
-            elif model_mode == "train":
-                results.update(train_model(cfg, model, task))
-
-            else:
-                raise ValueError(f"Invalid model mode: {model_mode}")
-            
-            logging.info(f"Results: {results}")
-        
-        except Exception as e:
-            logging.error(f"Error running task {task}: {e}")
-            raise e
         
 
 @hydra.main(
@@ -44,9 +16,6 @@ def run_model(cfg: DictConfig):
     version_base=None
 )
 def main(cfg: DictConfig) -> None:
-    # Check configs and set logging
-    # run_dir = os.getcwd()
-    # output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logging.basicConfig(
         format='%(asctime)s - %(module)s - %(levelname)s - %(message)s',
         level=logging.DEBUG,

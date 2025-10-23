@@ -15,15 +15,15 @@ tasks:
 - cyp2d6_veith
 - cyp3a4_veith
 - cyp2c9_veith
+- cyp2c9_substrate_carbonmangels
 - cyp2d6_substrate_carbonmangels
 - cyp3a4_substrate_carbonmangels
-- cyp2c9_substrate_carbonmangels
 # Excretion
 - half_life_obach
 - clearance_microsome_az
 - clearance_hepatocyte_az
 # Toxicity
+- ld50_zhu
 - herg
 - ames
 - dili
-- ld50_zhu

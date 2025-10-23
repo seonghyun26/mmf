@@ -73,7 +73,6 @@ class HistGradientBoost(ModelWrapper):
             elif task_type == "binary":
                 model = HistGradientBoostingClassifier(**self.model.get_params())
             model.set_params(random_state=seed)
-            plot_file = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/{self.task}/{seed}.html"
             
             benchmark = group.get(self.task)
             predictions = {}
