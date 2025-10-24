@@ -1,0 +1,1 @@
+from .minimol_v1 import *

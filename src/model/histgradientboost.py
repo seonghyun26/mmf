@@ -14,8 +14,6 @@ from tdc.metadata import admet_metrics
 
 from .base import ModelWrapper
 
-group = admet_group(path = './data/')
-
 
 class HistGradientBoost(ModelWrapper):
     def __init__(self, cfg: DictConfig, task: str):
@@ -44,6 +42,8 @@ class HistGradientBoost(ModelWrapper):
             'ames': ('binary', False),
             'dili': ('binary', False)
         }
+        self.group = admet_group(path = './data/')
+        
         
         task_type, task_log_scale = self.admet_task_config[self.task]
         if task_type == "regression":
@@ -74,7 +74,7 @@ class HistGradientBoost(ModelWrapper):
                 model = HistGradientBoostingClassifier(**self.model.get_params())
             model.set_params(random_state=seed)
             
-            benchmark = group.get(self.task)
+            benchmark = self.group.get(self.task)
             predictions = {}
             name = benchmark['name']
             train, test = benchmark['train_val'], benchmark['test']
@@ -94,7 +94,7 @@ class HistGradientBoost(ModelWrapper):
                 y_pred_test = model.predict_proba(X_test)[:, 1]
             
             predictions[name] = y_pred_test
-            single_result = group.evaluate(predictions)[self.task]
+            single_result = self.group.evaluate(predictions)[self.task]
             single_result[f"{metric_name}/{seed}"] = single_result.pop(metric_name)
             results.update(single_result)
             predictions_list.append(predictions)
@@ -102,7 +102,7 @@ class HistGradientBoost(ModelWrapper):
             # Save model for each seed
             self.save(model, seed)
         
-        averaged_results = group.evaluate_many(predictions_list)[self.task]
+        averaged_results = self.group.evaluate_many(predictions_list)[self.task]
         results.update({
             f"{metric_name}/mean": averaged_results[0],
             f"{metric_name}/std": averaged_results[1],
@@ -111,7 +111,7 @@ class HistGradientBoost(ModelWrapper):
         return results
 
     def save(self, model: Any, seed: int):
-        save_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/model"
+        save_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/{self.cfg.model.name}"
         os.makedirs(save_dir, exist_ok=True)
         format = self.cfg.model.format
         with open(f"{save_dir}/{seed}.{format}", 'wb') as f:
