@@ -25,6 +25,8 @@ from tdc.metadata import admet_metrics
 
 
 from .base import ModelWrapper
+from ..util.constant import admet_task_config
+
 
 MINIMOL_MODEL_CONFIG = {
     'caco2_wang':                       {'hidden_dim': 2048, 'depth': 4, 'combine': True, 'lr': 0.0005},
@@ -54,30 +56,7 @@ MINIMOL_MODEL_CONFIG = {
 class MiniMol(ModelWrapper):
     def __init__(self, cfg: DictConfig, task: str):
         super().__init__(cfg, task)
-        self.admet_task_config = {
-            'caco2_wang': ('regression', False),
-            'bioavailability_ma': ('binary', False),
-            'lipophilicity_astrazeneca': ('regression', False),
-            'solubility_aqsoldb': ('regression', False),
-            'hia_hou': ('binary', False),
-            'pgp_broccatelli': ('binary', False),
-            'bbb_martins': ('binary', False),
-            'ppbr_az': ('regression', False),
-            'vdss_lombardo': ('regression', True),
-            'cyp2c9_veith': ('binary', False),
-            'cyp2d6_veith': ('binary', False),
-            'cyp3a4_veith': ('binary', False),
-            'cyp2c9_substrate_carbonmangels': ('binary', False),
-            'cyp2d6_substrate_carbonmangels': ('binary', False),
-            'cyp3a4_substrate_carbonmangels': ('binary', False),
-            'half_life_obach': ('regression', True),
-            'clearance_hepatocyte_az': ('regression', True),
-            'clearance_microsome_az': ('regression', True),
-            'ld50_zhu': ('regression', False),
-            'herg': ('binary', False),
-            'ames': ('binary', False),
-            'dili': ('binary', False)
-        }
+        self.admet_task_config = admet_task_config
         self.group = admet_group(path = './data/')
         self.cfg = cfg
         self.EPOCHS = self.cfg.model.epochs
