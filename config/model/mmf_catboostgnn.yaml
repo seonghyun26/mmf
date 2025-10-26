@@ -1,0 +1,21 @@
+name: mmf_catboostgnn
+mode: train
+catboost:
+  format: cbm
+  fit:
+    plot: True
+  params:
+    random_strength: 2
+    verbose: 0
+    task_type: 'GPU'
+    devices: '0'
+molecule_encoder:
+  name: fingerprint
+  type:
+  - morgan
+  - avalon
+  - erg
+  - rdkit
+protein_encoder:
+  name: esm-precomputed
+  base_path: /home/shpark/prj-kmelloddy/benchmark/data/protein

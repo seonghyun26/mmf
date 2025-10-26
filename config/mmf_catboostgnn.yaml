@@ -1,0 +1,11 @@
+defaults:
+- model: mmf_catboostgnn
+- job: all
+
+hydra:
+  run:
+    dir: output/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: output/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  output_subdir: .hydra

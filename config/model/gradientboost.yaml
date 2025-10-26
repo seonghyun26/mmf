@@ -5,3 +5,16 @@ params:
   n_estimators: 100
   subsample: 1.0
 format: pkl
+fingerprint:
+  cachedir: /home/shpark/prj-kmelloddy/benchmark/data/cache
+  cachefile: fingerprint
+  type:
+  - morgan
+  - avalon
+  - erg
+  - rdkit
+  morgan:
+    nBits: 1024
+    radius: 2
+  avalon:
+    nBits: 1024

@@ -63,7 +63,8 @@ class MiniMol(ModelWrapper):
         self.REPETITIONS = self.cfg.model.repetitions
         self.ENSEMBLE_SIZE = self.cfg.model.ensemble_size
         
-        self.model = MinimolEncoder(cfg=self.cfg)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = MinimolEncoder(cfg=self.cfg, device=self.device)
     
     
     def train(self):
@@ -73,17 +74,21 @@ class MiniMol(ModelWrapper):
         plot_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/{self.task}"
         os.makedirs(plot_dir, exist_ok=True)
         
+        task_type, task_log_scale = self.admet_task_config[self.task]
+        benchmark = self.group.get(self.task)
+        name = benchmark['name']
+        
+        # Computing test embeddings
+        _, test = benchmark['train_val'], benchmark['test']
+        with open(os.devnull, 'w') as fnull, redirect_stdout(fnull), redirect_stderr(fnull): # suppress output
+            test_embeddings = self.model(list(test['Drug'])).to(self.device)
+        test_targets = torch.tensor(test['Y'].values, device=self.device, dtype=torch.float32)
+        test_loader = DataLoader(AdmetDataset(test_embeddings, test_targets), batch_size=128, shuffle=False)
+        
         # LOOP1: ensemble on seeds
         pbar = tqdm(total=self.REPETITIONS * self.ENSEMBLE_SIZE * self.EPOCHS, desc="Training")
         for rep_i, seed1 in enumerate(range(self.REPETITIONS)):
             predictions = {}
-            task_type, task_log_scale = self.admet_task_config[self.task]
-            benchmark = self.group.get(self.task)
-            name = benchmark['name']
-            train, test = benchmark['train_val'], benchmark['test']
-            with open(os.devnull, 'w') as fnull, redirect_stdout(fnull), redirect_stderr(fnull): # suppress output
-                test['Embedding'] = self.model(list(test['Drug']))
-            test_loader = DataLoader(AdmetDataset(test), batch_size=128, shuffle=False)
             
             best_models = []
             # LOOP2: ensemble on folds
@@ -91,13 +96,14 @@ class MiniMol(ModelWrapper):
                 seed = cantor_pairing(seed1, seed2)
                 with open(os.devnull, 'w') as fnull, redirect_stdout(fnull), redirect_stderr(fnull): # suppress output
                     mols_train, mols_valid = self.group.get_train_valid_split(benchmark = name, split_type = 'default', seed = seed)
-                    mols_train['Embedding'] = self.model(list(mols_train['Drug']))
-                    mols_valid['Embedding'] = self.model(list(mols_valid['Drug']))
-                val_loader   = DataLoader(AdmetDataset(mols_valid), batch_size=128, shuffle=False)
-                train_loader = DataLoader(AdmetDataset(mols_train), batch_size=32, shuffle=True)
+                    train_embeddings = self.model(list(mols_train['Drug'])).to(self.device)
+                    train_targets = torch.tensor(mols_train['Y'].values, device=self.device, dtype=torch.float32)
+                    valid_embeddings = self.model(list(mols_valid['Drug'])).to(self.device)
+                    valid_targets = torch.tensor(mols_valid['Y'].values, device=self.device, dtype=torch.float32)
+                val_loader   = DataLoader(AdmetDataset(valid_embeddings, valid_targets), batch_size=128, shuffle=False)
+                train_loader = DataLoader(AdmetDataset(train_embeddings, train_targets), batch_size=32, shuffle=True)
                 hparams = MINIMOL_MODEL_CONFIG[self.task]
-                # Load task head model
-                model, optimiser, lr_scheduler, loss_fn = model_factory(**hparams, task=task_type)
+                model, optimiser, lr_scheduler, loss_fn = model_factory(**hparams, task=task_type, device=self.device)
                 best_epoch = {"model": None, "result": None}
                 
                 # LOOP3: training loop
@@ -110,13 +116,13 @@ class MiniMol(ModelWrapper):
                     else:
                         best_epoch['model'] = best_epoch['model'] if best_epoch['result'] <= val_loss else deepcopy(model)
                         best_epoch['result'] = best_epoch['result'] if best_epoch['result'] <= val_loss else deepcopy(val_loss)
-                pbar.set_description(
-                    f"Rep {rep_i + 1} / {self.REPETITIONS} | "
-                    f"Fold {fold_i + 1} / {self.ENSEMBLE_SIZE} | "
-                    f"Epoch {epoch + 1} / {self.EPOCHS} | "
-                    f"Loss {val_loss:.3f}"
-                )
-                pbar.update(1)
+                    pbar.set_description(
+                        f"Rep {rep_i + 1} / {self.REPETITIONS} | "
+                        f"Fold {fold_i + 1} / {self.ENSEMBLE_SIZE} | "
+                        f"Epoch {epoch + 1} / {self.EPOCHS} | "
+                        f"Loss {val_loss:.3f}"
+                    )
+                    pbar.update(1)
                 best_models.append(deepcopy(best_epoch['model']))
 
             y_pred_test = evaluate_ensemble(best_models, test_loader, task_type)
@@ -157,6 +163,10 @@ class TaskHead(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.combine = combine
         self.depth = depth
+        
+    @property
+    def device(self):
+        return next(self.parameters()).device
 
     def forward(self, x):
         original_x = x
@@ -183,8 +193,8 @@ class TaskHead(nn.Module):
         return x
 
 
-def model_factory(hidden_dim, depth, combine, task, lr, epochs=25, warmup=5, weight_decay=0.0001):
-    model = TaskHead(hidden_dim=hidden_dim, depth=depth, combine=combine)
+def model_factory(hidden_dim, depth, combine, task, lr, epochs=25, warmup=5, weight_decay=0.0001, device="cuda"):
+    model = TaskHead(hidden_dim=hidden_dim, depth=depth, combine=combine).to(device)
     optimiser = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fn = nn.BCELoss() if task == 'classification' else nn.MSELoss()        
 
@@ -254,17 +264,15 @@ def train_one_epoch(predictor, train_loader, optimiser, lr_scheduler, loss_fn, e
 
 
 class AdmetDataset(Dataset):
-    def __init__(self, samples):
-        self.samples = samples['Embedding'].tolist()
-        self.targets = [float(target) for target in samples['Y'].tolist()]
+    def __init__(self, embeddings, targets):
+        self.embeddings = embeddings
+        self.targets = targets
 
     def __len__(self):
-        return len(self.samples)
+        return len(self.targets)
 
     def __getitem__(self, idx):
-        sample = torch.tensor(self.samples[idx])
-        target = torch.tensor(self.targets[idx])
-        return sample, target
+        return self.embeddings[idx], self.targets[idx]
 
 
 
@@ -284,8 +292,9 @@ from graphium.config._loader import (
 
 
 class MinimolEncoder: 
-    def __init__(self, cfg: DictConfig, batch_size: int = 100):
+    def __init__(self, cfg: DictConfig, batch_size: int = 100, device: str = 'cuda'):
         self.batch_size = batch_size
+        self.device = device
         self.cfg = cfg
         state_dict_path = str(resources.files(self.cfg.model.resource_file.file_path) / self.cfg.model.resource_file.state_dict_file_name)
         base_shape_path = str(resources.files(self.cfg.model.resource_file.file_path) / self.cfg.model.resource_file.base_shape_file_name)
@@ -315,6 +324,8 @@ class MinimolEncoder:
         predictor.load_state_dict(torch.load(state_dict_path), strict=False)
         self.predictor = Fingerprinter(predictor, 'gnn:15')
         self.predictor.setup()
+        
+        self.predictor.predictor.model = self.predictor.predictor.model.to(self.device)
 
     def set_training_mode_false(self, module):
         if isinstance(module, torch.nn.Module):
@@ -335,7 +346,6 @@ class MinimolEncoder:
 
     def __call__(self, smiles: Union[str,list]) -> torch.Tensor:
         smiles = [smiles] if not isinstance(smiles, list) else smiles
-        
         batch_size = min(self.batch_size, len(smiles))
 
         results = []
@@ -345,12 +355,15 @@ class MinimolEncoder:
                 input_features = self.to_fp32(input_features)
 
             batch = Batch.from_data_list(input_features)
+            for key, data in batch:
+                if type(data) == torch.Tensor:
+                    batch[key] = data.to(self.device)
             batch = {"features": batch, "batch_indices": batch.batch}
-            node_features = self.predictor.get_fingerprints_for_batch(batch)
+            node_features = self.predictor.get_fingerprints_for_batch(batch).to(self.device)
             fingerprint_graph = global_max_pool(node_features, batch['batch_indices'])
-            num_molecules = min(batch_size, fingerprint_graph.shape[0])
-            results += [fingerprint_graph[i] for i in range(num_molecules)]
-
+            results += fingerprint_graph
+        
+        results = torch.stack(results)
         return results
     
     def to_fp32(self, input_features: list) -> list:
