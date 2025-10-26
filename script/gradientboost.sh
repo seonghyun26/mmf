@@ -1,4 +1,5 @@
 cd ../
 
 CUDA_VISIBLE_DEVICES=$1 python ./main.py \
-    --config-name gradientboost
+    --config-name gradientboost \
+    job=error

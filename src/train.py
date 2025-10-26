@@ -15,6 +15,7 @@ model_classes = {
     "gradientboost": GradientBoost,
     "histgradientboost": HistGradientBoost,
     "minimol": MiniMol,
+    "mmf_catboostgnn": MMFCatboostGNN,
 }
 
 
