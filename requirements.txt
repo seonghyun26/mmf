@@ -38,7 +38,6 @@ decorator==5.2.1
 dgl==2.4.0+cu124
 dgllife==0.3.2
 dill==0.3.8
-dmff @ file:///home/shpark/prj-cv/DMFF
 et_xmlfile==2.0.0
 etils==1.5.2
 eval_type_backport==0.2.2
