@@ -37,12 +37,24 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
           restore-keys: ${{ runner.os }}-pip-
 
-      - name: Install dependencies
+      # - name: Install dependencies
+      #   run: |
+      #     python -m pip install --upgrade pip
+      #     pip install dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
+      #     pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+      #     pip install torch-scatter torch-sparse torch-spline-conv torch-cluster -f https://data.pyg.org/whl/torch-2.1.0+cu121.html
+      #     if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Install dependencies (CPU stack)
+        env:
+          CUDA_VISIBLE_DEVICES: ""
         run: |
           python -m pip install --upgrade pip
-          pip install dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
-          pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
-          pip install torch-scatter torch-sparse torch-spline-conv torch-cluster -f https://data.pyg.org/whl/torch-2.1.0+cu121.html
+
+          pip install torch==2.4.0+cpu torchvision==0.19.0+cpu torchaudio==2.4.0+cpu --index-url https://download.pytorch.org/whl/cpu
+          pip install dgl -f https://data.dgl.ai/wheels/torch-2.4/repo.html
+          pip install torch-scatter torch-sparse torch-spline-conv torch-cluster -f https://data.pyg.org/whl/torch-2.4.0+cpu.html
+          
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Unit run (${{ matrix.config }})
