@@ -1,5 +1,4 @@
-name: unit_test
-run name: Run unit test
+name: Unit test
 
 on: [push]
 
