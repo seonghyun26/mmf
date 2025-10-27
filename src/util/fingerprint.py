@@ -8,6 +8,7 @@ from typing import List
 from omegaconf import OmegaConf
 
 from molfeat.trans.pretrained import PretrainedDGLTransformer
+from molfeat.trans.pretrained import PretrainedHFTransformer
 
 from rdkit import Chem, RDLogger
 from rdkit.Chem import DataStructs
@@ -142,7 +143,7 @@ class FingerprintManager:
         return np.concatenate(fingerprints, axis=1)
     
     
-class FingerprintManagerGIN:
+class FingerprintManagerGIN(FingerprintManager):
     def __init__(self, cfg: OmegaConf, taskname: str, model_name: str, split: str, data:pd.Series):
         RDLogger.DisableLog('rdApp.*')
         self.cfg = cfg
@@ -158,52 +159,6 @@ class FingerprintManagerGIN:
     @property
     def fingerprints(self):
         return self._fingerprints
-
-    def _initalize_fingerprints(self):
-        if "cachedir" in self.cfg.keys() and "cachefile" in self.cfg.keys() and os.path.exists(self.cache_path):
-            with open(self.cache_path, "rb") as f:
-                self._fingerprints = pickle.load(f)
-            logging.info(f"Loaded fingerprints from {self.cache_path}")
-        
-        else:
-            self._fingerprints = self.smiles2fingerprint(self.data)
-            logging.info(f"Generated fingerprints for {len(self._fingerprints)} molecules")
-            self._save_cache()
-
-    def _save_cache(self):
-        with open(self.cache_path, "wb") as f:
-            pickle.dump(self._fingerprints, f)
-    
-    def count_to_array(self, fingerprint):
-        array = np.zeros((0,), dtype=np.int8)
-        DataStructs.ConvertToNumpyArray(fingerprint, array)
-
-        return array
-
-    def get_avalon_fingerprints(self, molecules, nBits=1024):
-        fingerprints = molecules.swifter.apply(lambda x: GetAvalonCountFP(x, nBits=nBits))
-        fingerprints = fingerprints.swifter.apply(self.count_to_array)
-        
-        return np.stack(fingerprints.values)
-
-    def get_morgan_fingerprints(self, molecules, nBits=1024, radius=2):
-        fingerprints = molecules.swifter.apply(lambda x: GetHashedMorganFingerprint(x, nBits=nBits, radius=radius))
-        fingerprints = fingerprints.swifter.apply(self.count_to_array)
-        
-        return np.stack(fingerprints.values)
-
-    def get_erg_fingerprints(self, molecules):
-        fingerprints = molecules.swifter.apply(GetErGFingerprint)
-        
-        return np.stack(fingerprints.values)
-
-    # from https://www.blopig.com/blog/2022/06/how-to-turn-a-molecule-into-a-vector-of-physicochemical-descriptors-using-rdkit/
-    def get_rdkit_features(self, molecules):
-        calculator = MolecularDescriptorCalculator(RDKIT_CHOSEN_DESCRIPTORS)
-        X_rdkit = molecules.swifter.apply(lambda x: np.array(calculator.CalcDescriptors(x)))
-        X_rdkit = np.vstack(X_rdkit.values)
-
-        return X_rdkit
     
     def get_gin_supervised_masking(self, molecules):
         transformer = PretrainedDGLTransformer(kind='gin_supervised_masking', dtype=float)
@@ -221,3 +176,78 @@ class FingerprintManagerGIN:
         fingerprints.append(self.get_gin_supervised_masking(molecules))
 
         return np.concatenate(fingerprints, axis=1)
+    
+    
+class FingerprintManagerHF(FingerprintManager):
+    def __init__(self, cfg: OmegaConf, taskname: str, model_name: str, split: str, data:pd.Series):
+        RDLogger.DisableLog('rdApp.*')
+        self.cfg = cfg
+        self.taskname = taskname
+        self.name = model_name
+        self.split = split
+        self.data = data
+        
+        self.cache_path = os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl")
+        os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
+        self._initalize_fingerprints()
+
+    @property
+    def fingerprints(self):
+        return self._fingerprints
+    
+    def smiles2fingerprint(self, smiles) -> np.ndarray:
+        molecules = smiles.swifter.apply(lambda x: Chem.MolFromSmiles(x))
+
+        fingerprints = []
+        fingerprints.append(self.get_morgan_fingerprints(molecules, **self.cfg.morgan))
+        fingerprints.append(self.get_avalon_fingerprints(molecules, **self.cfg.avalon))
+        fingerprints.append(self.get_erg_fingerprints(molecules))
+        fingerprints.append(self.get_rdkit_features(molecules))
+
+        ml_cfg = getattr(self.cfg, "ml", None)
+        if ml_cfg and bool(ml_cfg.get("enabled", False)):
+            # Use raw SMILES (not RDKit mols) for the language model backend
+            ml_featurizer = MLFeaturizer(ml_cfg)
+            ml_vecs = ml_featurizer(smiles)           # [N, D]
+            fingerprints.append(ml_vecs)
+
+        return np.concatenate(fingerprints, axis=1)
+    
+    
+class MLFeaturizer:
+    """
+    Wrap ML-based molecular embeddings (Transformer or DGL via molfeat).
+    """
+    def __init__(self, ml_cfg: OmegaConf):
+        self.ml_cfg = ml_cfg
+        self.backend = ml_cfg.get("backend", "hf")
+        self.model_name = ml_cfg.get("model_name", "ChemBERTa-77M-MLM")
+        self.pooling = ml_cfg.get("pooling", "mean")
+        self.batch_size = int(ml_cfg.get("batch_size", 64))
+
+        self._hf = None
+        self._ready = False
+        self._init_models()
+
+    def _init_models(self):
+        if self.backend == "hf":
+            if PretrainedHFTransformer is None:
+                raise ImportError("molfeat[transformers] is required for HF backend.")
+            self._hf = PretrainedHFTransformer(
+                kind=self.model_name,
+                pooling=self.pooling,
+                as_numpy=True
+            )
+            self._ready = True
+        elif self.backend == "dgl":
+            raise NotImplementedError("Set a valid DGL pretrained model in molfeat store.")
+        else:
+            raise ValueError(f"Unknown ML featurizer backend: {self.backend}")
+
+    def __call__(self, smiles_series: pd.Series) -> np.ndarray:
+        assert self._ready, "MLFeaturizer is not initialized."
+        embeds = self._hf.transform(list(smiles_series.values), batch_size=self.batch_size)
+        embeds = np.asarray(embeds)
+        if embeds.ndim == 1:
+            embeds = embeds.reshape(-1, 1)
+        return embeds   

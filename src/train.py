@@ -40,8 +40,7 @@ def run_model(cfg: DictConfig):
         model = load_model(cfg, task)
         model_mode = OmegaConf.select(cfg, "model.mode")
         
-        # Train or fine-tune pre-trained model
-        if model_mode == "pre-trained":
+        if model_mode == "pre-train":
             logging.info(f"Fine-tuning model for task: {task}")
             
             # Configs
@@ -56,7 +55,9 @@ def run_model(cfg: DictConfig):
             )
             
             # Fine-tune model
-            results = model.fine_tune()
+            results = model.pre_train()
+            wandb.log(results)
+            results = model.train()
             wandb.log(results)
             wandb.finish()
         
