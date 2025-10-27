@@ -76,6 +76,8 @@ class FingerprintManager:
         self.split = split
         self.data = data
         
+        self.cache_path = os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl")
+        os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
         self._initalize_fingerprints()
 
     @property
@@ -83,10 +85,10 @@ class FingerprintManager:
         return self._fingerprints
 
     def _initalize_fingerprints(self):
-        if "cachedir" in self.cfg.keys() and "cachefile" in self.cfg.keys() and os.path.exists(os.path.join(self.cfg.cachedir, f"{self.taskname}_{self.split}.pkl")):
-            with open(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl"), "rb") as f:
+        if "cachedir" in self.cfg.keys() and "cachefile" in self.cfg.keys() and os.path.exists(self.cache_path):
+            with open(self.cache_path, "rb") as f:
                 self._fingerprints = pickle.load(f)
-            logging.info(f"Loaded fingerprints from {os.path.join(self.cfg.cachedir, self.name, f'{self.taskname}_{self.split}.pkl')}")
+            logging.info(f"Loaded fingerprints from {self.cache_path}")
         
         else:
             self._fingerprints = self.smiles2fingerprint(self.data)
@@ -94,7 +96,7 @@ class FingerprintManager:
             self._save_cache()
 
     def _save_cache(self):
-        with open(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl"), "wb") as f:
+        with open(self.cache_path, "wb") as f:
             pickle.dump(self._fingerprints, f)
     
     def count_to_array(self, fingerprint):
@@ -149,6 +151,8 @@ class FingerprintManagerGIN:
         self.split = split
         self.data = data
         
+        self.cache_path = os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl")
+        os.makedirs(os.path.dirname(self.cache_path), exist_ok=True)
         self._initalize_fingerprints()
 
     @property
@@ -156,10 +160,10 @@ class FingerprintManagerGIN:
         return self._fingerprints
 
     def _initalize_fingerprints(self):
-        if "cachedir" in self.cfg.keys() and "cachefile" in self.cfg.keys() and os.path.exists(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl")):
-            with open(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl"), "rb") as f:
+        if "cachedir" in self.cfg.keys() and "cachefile" in self.cfg.keys() and os.path.exists(self.cache_path):
+            with open(self.cache_path, "rb") as f:
                 self._fingerprints = pickle.load(f)
-            logging.info(f"Loaded fingerprints from {os.path.join(self.cfg.cachedir, self.name, f'{self.taskname}_{self.split}.pkl')}")
+            logging.info(f"Loaded fingerprints from {self.cache_path}")
         
         else:
             self._fingerprints = self.smiles2fingerprint(self.data)
@@ -167,7 +171,7 @@ class FingerprintManagerGIN:
             self._save_cache()
 
     def _save_cache(self):
-        with open(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl"), "wb") as f:
+        with open(self.cache_path, "wb") as f:
             pickle.dump(self._fingerprints, f)
     
     def count_to_array(self, fingerprint):

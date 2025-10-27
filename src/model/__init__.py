@@ -4,4 +4,6 @@ from .gradientboost import *
 from .histgradientboost import *
 from .minimol import *
 from .ckpt import *
+
+from .maplight_gnn_cell import *
 from .mmf_catboostgnn import *

@@ -1,4 +1,4 @@
 defaults:
-- model: catboost_gnn
+- model: minimol_big
 - job: all
 - hydra

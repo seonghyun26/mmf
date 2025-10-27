@@ -1,17 +1,14 @@
 import hydra
 import wandb
 import logging
-import os
-from abc import ABC, abstractmethod
 
-from typing import Any
 from omegaconf import DictConfig, OmegaConf
-
 
 from .model import *
 model_classes = {
     "catboost": Catboost,
     "catboost_gnn": CatboostGNN,
+    "catboost_gnn_cell": CatboostGNNCell,
     "gradientboost": GradientBoost,
     "histgradientboost": HistGradientBoost,
     "minimol": MiniMol,

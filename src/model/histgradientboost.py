@@ -1,12 +1,12 @@
 import hydra
-import catboost as cb
 import os
 import pickle
+import numpy as np
 
 from tqdm import tqdm
 from typing import Any
 from omegaconf import DictConfig, OmegaConf
-from sklearn.preprocessing import QuantileTransformer
+from sklearn import preprocessing
 from sklearn.ensemble import HistGradientBoostingRegressor, HistGradientBoostingClassifier
 
 from tdc.benchmark_group import admet_group
@@ -19,63 +19,53 @@ from ..util import *
 class HistGradientBoost(ModelWrapper):
     def __init__(self, cfg: DictConfig, task: str):
         super().__init__(cfg, task)
-        self.admet_task_config = admet_task_config
-        self.group = admet_group(path = './data/')
         
-        
-        task_type, task_log_scale = self.admet_task_config[self.task]
-        if task_type == "regression":
+        if self.task_type == "regression":
             params = OmegaConf.to_container(self.cfg.model.params, resolve=True)
             self.model = HistGradientBoostingRegressor(**params)
 
-        elif task_type == "binary":
+        elif self.task_type == "binary":
             params = OmegaConf.to_container(self.cfg.model.params, resolve=True)
             self.model = HistGradientBoostingClassifier(**params)
         
         else:
-            raise ValueError(f"Invalid task type: {task_type}")
+            raise ValueError(f"Invalid task type: {self.task_type}")
     
 
     def train(self):
-        metric_name = admet_metrics.get(self.task, )
-        predictions_list = []
-        results = {}
         plot_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/{self.task}"
         os.makedirs(plot_dir, exist_ok=True)
+        name = self.benchmark['name']
+        train, test = self.benchmark['train_val'], self.benchmark['test']
+        X_train = FingerprintManager(self.cfg.model.fingerprint, self.task, self.cfg.model.name, "train", train['Drug']).fingerprints
+        X_test = FingerprintManager(self.cfg.model.fingerprint, self.task, self.cfg.model.name, "test", test['Drug']).fingerprints
         
+        
+        results = {}
+        predictions_list = []
         for seed in tqdm(range(self.cfg.job.max_seed)):
             # Initialize a fresh model for each seed to ensure proper randomization
-            task_type, task_log_scale = self.admet_task_config[self.task]
-            if task_type == "regression":
+            if self.task_type == "regression":
                 model = HistGradientBoostingRegressor(**self.model.get_params())
-            elif task_type == "binary":
+            elif self.task_type == "binary":
                 model = HistGradientBoostingClassifier(**self.model.get_params())
             model.set_params(random_state=seed)
-            
-            benchmark = self.group.get(self.task)
+
             predictions = {}
-            name = benchmark['name']
-            train, test = benchmark['train_val'], benchmark['test']
-            # X_train = get_fingerprints(train['Drug'])
-            # X_test = get_fingerprints(test['Drug'])
-            X_train = FingerprintManager(self.cfg.model.fingerprint, self.task, self.cfg.model.name, "train", train['Drug']).fingerprints
-            X_test = FingerprintManager(self.cfg.model.fingerprint, self.task, self.cfg.model.name, "test", test['Drug']).fingerprints
-            
-            
-            if task_type == "regression":
-                Y_scaler = scaler(log=task_log_scale)
+            if self.task_type == "regression":
+                Y_scaler = scaler(log=self.task_log_scale)
                 Y_scaler.fit(train['Y'].values)
                 train['Y_scale'] = Y_scaler.transform(train['Y'].values)
                 model.fit(X_train, train['Y_scale'].values)
                 y_pred_test = Y_scaler.inverse_transform(model.predict(X_test)).reshape(-1)
             
-            elif task_type == "binary":
+            elif self.task_type == "binary":
                 model.fit(X_train, train['Y'].values)
                 y_pred_test = model.predict_proba(X_test)[:, 1]
             
             predictions[name] = y_pred_test
             single_result = self.group.evaluate(predictions)[self.task]
-            single_result[f"{metric_name}/{seed}"] = single_result.pop(metric_name)
+            single_result[f"{self.metric_name}/{seed}"] = single_result.pop(self.metric_name)
             results.update(single_result)
             predictions_list.append(predictions)
             
@@ -84,8 +74,8 @@ class HistGradientBoost(ModelWrapper):
         
         averaged_results = self.group.evaluate_many(predictions_list)[self.task]
         results.update({
-            f"{metric_name}/mean": averaged_results[0],
-            f"{metric_name}/std": averaged_results[1],
+            f"{self.metric_name}/mean": averaged_results[0],
+            f"{self.metric_name}/std": averaged_results[1],
         })
         
         return results
@@ -97,20 +87,6 @@ class HistGradientBoost(ModelWrapper):
         with open(f"{save_dir}/{seed}.{format}", 'wb') as f:
             pickle.dump(model, f)
 
-
-
-import numpy as np
-
-from sklearn import preprocessing
-
-from rdkit import Chem
-from rdkit import RDLogger
-
-from rdkit.Chem import DataStructs
-from rdkit.Chem.rdMolDescriptors import GetHashedMorganFingerprint
-from rdkit.Avalon.pyAvalonTools import GetAvalonCountFP
-from rdkit.Chem import rdReducedGraphs
-from rdkit.ML.Descriptors.MoleculeDescriptors import MolecularDescriptorCalculator
 
 
 class scaler:
