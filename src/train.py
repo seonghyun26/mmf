@@ -6,18 +6,17 @@ from omegaconf import DictConfig, OmegaConf
 
 from .model import *
 model_classes = {
-    "catboost": Catboost,
-    "catboost_gnn": CatboostGNN,
-    "catboost_gnn_cell": CatboostGNNCell,
+    "maplight": Maplight,
+    "maplight_gnn": MaplightGNN,
     "gradientboost": GradientBoost,
     "histgradientboost": HistGradientBoost,
     "minimol": MiniMol,
-    "mmf_catboostgnn": MMFCatboostGNN,
+    # "mmf_maplightgnn": MMFMaplightGNN,
 }
 
 
 def load_model(cfg: DictConfig, task: str):
-    model_name = OmegaConf.select(cfg, "model.name", default="catboost")
+    model_name = OmegaConf.select(cfg, "model.name", default="maplight_gnn")
     logging.info(f"Loading model: {model_name}")
     
     if model_name in model_classes:

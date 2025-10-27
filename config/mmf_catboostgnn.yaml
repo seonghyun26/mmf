@@ -1,4 +1,4 @@
 defaults:
-- model: mmf_catboostgnn
+- model: mmf_maplightgnn
 - job: all
 - hydra

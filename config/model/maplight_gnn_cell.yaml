@@ -1,4 +1,4 @@
-name: catboost_gnn
+name: maplight_gnn_cell
 mode: train
 format: cbm
 params:

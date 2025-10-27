@@ -46,7 +46,7 @@ class ProteinEmbeddingLoader(nn.Module):
 
         return torch.stack(protein_embeddings)
 
-class MMFCatboostGNN(ModelWrapper):
+class MMFMaplightGNN(ModelWrapper):
     def __init__(self, cfg: DictConfig, task: str):
         super().__init__(cfg, task)
         self.group = admet_group(path = './data/')

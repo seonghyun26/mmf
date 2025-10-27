@@ -1,6 +1,6 @@
-name: mmf_catboostgnn
+name: mmf_maplightgnn
 mode: train
-catboost:
+maplight:
   format: cbm
   fit:
     plot: True

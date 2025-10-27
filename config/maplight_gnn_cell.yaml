@@ -1,4 +1,4 @@
 defaults:
-- model: catboost_gnn
+- model: maplight_gnn_cell
 - job: all
 - hydra

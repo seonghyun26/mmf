@@ -13,7 +13,7 @@ from ..util import *
 
 
 
-class CatboostGNN(ModelWrapper):
+class MaplightGNN(ModelWrapper):
     def __init__(self, cfg: DictConfig, task: str):
         super().__init__(cfg, task)
         

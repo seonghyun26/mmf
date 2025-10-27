@@ -14,7 +14,7 @@ from ..util import *
 
 
 
-class Catboost(ModelWrapper):
+class Maplight(ModelWrapper):
     def __init__(self, cfg: DictConfig, task: str):
         super().__init__(cfg, task)
 

@@ -1,4 +1,4 @@
-name: catboost
+name: maplight
 mode: train
 format: cbm
 params:
