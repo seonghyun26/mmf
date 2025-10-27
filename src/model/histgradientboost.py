@@ -56,8 +56,10 @@ class HistGradientBoost(ModelWrapper):
             predictions = {}
             name = benchmark['name']
             train, test = benchmark['train_val'], benchmark['test']
-            X_train = get_fingerprints(train['Drug'])
-            X_test = get_fingerprints(test['Drug'])
+            # X_train = get_fingerprints(train['Drug'])
+            # X_test = get_fingerprints(test['Drug'])
+            X_train = FingerprintManager(self.cfg.model.fingerprint, self.task, self.cfg.model.name, "train", train['Drug']).fingerprints
+            X_test = FingerprintManager(self.cfg.model.fingerprint, self.task, self.cfg.model.name, "test", test['Drug']).fingerprints
             
             
             if task_type == "regression":
@@ -149,57 +151,3 @@ class scaler:
 
         return y
 
-
-# from https://github.com/rdkit/rdkit/discussions/3863
-def count_to_array(fingerprint):
-    array = np.zeros((0,), dtype=np.int8)
-    
-    DataStructs.ConvertToNumpyArray(fingerprint, array)
-
-    return array
-
-
-def get_avalon_fingerprints(molecules, n_bits=1024):
-    fingerprints = molecules.apply(lambda x: GetAvalonCountFP(x, nBits=n_bits))
-
-    fingerprints = fingerprints.apply(count_to_array)
-    
-    return np.stack(fingerprints.values)
-
-
-def get_morgan_fingerprints(molecules, n_bits=1024, radius=2):
-    fingerprints = molecules.apply(lambda x: 
-        GetHashedMorganFingerprint(x, nBits=n_bits, radius=radius))
-
-    fingerprints = fingerprints.apply(count_to_array)
-    
-    return np.stack(fingerprints.values)
-
-
-def get_erg_fingerprints(molecules):
-    fingerprints = molecules.apply(rdReducedGraphs.GetErGFingerprint)
-    
-    return np.stack(fingerprints.values)
-
-# from https://www.blopig.com/blog/2022/06/how-to-turn-a-molecule-into-a-vector-of-physicochemical-descriptors-using-rdkit/
-def get_rdkit_features(molecules):
-    calculator = MolecularDescriptorCalculator(RDKIT_CHOSEN_DESCRIPTORS)
-
-    X_rdkit = molecules.apply(lambda x: np.array(calculator.CalcDescriptors(x)))
-    X_rdkit = np.vstack(X_rdkit.values)
-
-    return X_rdkit
-
-
-def get_fingerprints(smiles):
-    RDLogger.DisableLog('rdApp.*')
-    molecules = smiles.apply(Chem.MolFromSmiles)
-    
-    fingerprints = []
-
-    fingerprints.append(get_morgan_fingerprints(molecules))
-    fingerprints.append(get_avalon_fingerprints(molecules))
-    fingerprints.append(get_erg_fingerprints(molecules))
-    fingerprints.append(get_rdkit_features(molecules))
-
-    return np.concatenate(fingerprints, axis=1)

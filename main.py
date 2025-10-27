@@ -8,7 +8,6 @@ import numexpr as ne
 from typing import Dict, Any
 from omegaconf import DictConfig, OmegaConf
 from src import *
-        
 
 @hydra.main(
     config_path="config",

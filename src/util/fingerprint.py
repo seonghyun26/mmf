@@ -4,9 +4,10 @@ import logging
 import os
 import pickle
 import swifter
-
 from typing import List
 from omegaconf import OmegaConf
+
+from molfeat.trans.pretrained import PretrainedDGLTransformer
 
 from rdkit import Chem, RDLogger
 from rdkit.Chem import DataStructs
@@ -67,9 +68,10 @@ RDKIT_CHOSEN_DESCRIPTORS = [
 ]
 
 class FingerprintManager:
-    def __init__(self, cfg: OmegaConf, taskname: str, split: str, data:pd.Series):
+    def __init__(self, cfg: OmegaConf, taskname: str, model_name: str,split: str, data:pd.Series):
         RDLogger.DisableLog('rdApp.*')
         self.cfg = cfg
+        self.name = model_name
         self.taskname = taskname
         self.split = split
         self.data = data
@@ -82,9 +84,9 @@ class FingerprintManager:
 
     def _initalize_fingerprints(self):
         if "cachedir" in self.cfg.keys() and "cachefile" in self.cfg.keys() and os.path.exists(os.path.join(self.cfg.cachedir, f"{self.taskname}_{self.split}.pkl")):
-            with open(os.path.join(self.cfg.cachedir, f"{self.taskname}_{self.split}.pkl"), "rb") as f:
+            with open(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl"), "rb") as f:
                 self._fingerprints = pickle.load(f)
-            logging.info(f"Loaded fingerprints from {os.path.join(self.cfg.cachedir, f'{self.taskname}_{self.split}.pkl')}")
+            logging.info(f"Loaded fingerprints from {os.path.join(self.cfg.cachedir, self.name, f'{self.taskname}_{self.split}.pkl')}")
         
         else:
             self._fingerprints = self.smiles2fingerprint(self.data)
@@ -92,7 +94,7 @@ class FingerprintManager:
             self._save_cache()
 
     def _save_cache(self):
-        with open(os.path.join(self.cfg.cachedir, f"{self.taskname}_{self.split}.pkl"), "wb") as f:
+        with open(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl"), "wb") as f:
             pickle.dump(self._fingerprints, f)
     
     def count_to_array(self, fingerprint):
@@ -134,5 +136,84 @@ class FingerprintManager:
         fingerprints.append(self.get_avalon_fingerprints(molecules, **self.cfg.avalon))
         fingerprints.append(self.get_erg_fingerprints(molecules))
         fingerprints.append(self.get_rdkit_features(molecules))
+
+        return np.concatenate(fingerprints, axis=1)
+    
+    
+class FingerprintManagerGIN:
+    def __init__(self, cfg: OmegaConf, taskname: str, model_name: str, split: str, data:pd.Series):
+        RDLogger.DisableLog('rdApp.*')
+        self.cfg = cfg
+        self.taskname = taskname
+        self.name = model_name
+        self.split = split
+        self.data = data
+        
+        self._initalize_fingerprints()
+
+    @property
+    def fingerprints(self):
+        return self._fingerprints
+
+    def _initalize_fingerprints(self):
+        if "cachedir" in self.cfg.keys() and "cachefile" in self.cfg.keys() and os.path.exists(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl")):
+            with open(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl"), "rb") as f:
+                self._fingerprints = pickle.load(f)
+            logging.info(f"Loaded fingerprints from {os.path.join(self.cfg.cachedir, self.name, f'{self.taskname}_{self.split}.pkl')}")
+        
+        else:
+            self._fingerprints = self.smiles2fingerprint(self.data)
+            logging.info(f"Generated fingerprints for {len(self._fingerprints)} molecules")
+            self._save_cache()
+
+    def _save_cache(self):
+        with open(os.path.join(self.cfg.cachedir, self.name, f"{self.taskname}_{self.split}.pkl"), "wb") as f:
+            pickle.dump(self._fingerprints, f)
+    
+    def count_to_array(self, fingerprint):
+        array = np.zeros((0,), dtype=np.int8)
+        DataStructs.ConvertToNumpyArray(fingerprint, array)
+
+        return array
+
+    def get_avalon_fingerprints(self, molecules, nBits=1024):
+        fingerprints = molecules.swifter.apply(lambda x: GetAvalonCountFP(x, nBits=nBits))
+        fingerprints = fingerprints.swifter.apply(self.count_to_array)
+        
+        return np.stack(fingerprints.values)
+
+    def get_morgan_fingerprints(self, molecules, nBits=1024, radius=2):
+        fingerprints = molecules.swifter.apply(lambda x: GetHashedMorganFingerprint(x, nBits=nBits, radius=radius))
+        fingerprints = fingerprints.swifter.apply(self.count_to_array)
+        
+        return np.stack(fingerprints.values)
+
+    def get_erg_fingerprints(self, molecules):
+        fingerprints = molecules.swifter.apply(GetErGFingerprint)
+        
+        return np.stack(fingerprints.values)
+
+    # from https://www.blopig.com/blog/2022/06/how-to-turn-a-molecule-into-a-vector-of-physicochemical-descriptors-using-rdkit/
+    def get_rdkit_features(self, molecules):
+        calculator = MolecularDescriptorCalculator(RDKIT_CHOSEN_DESCRIPTORS)
+        X_rdkit = molecules.swifter.apply(lambda x: np.array(calculator.CalcDescriptors(x)))
+        X_rdkit = np.vstack(X_rdkit.values)
+
+        return X_rdkit
+    
+    def get_gin_supervised_masking(self, molecules):
+        transformer = PretrainedDGLTransformer(kind='gin_supervised_masking', dtype=float)
+
+        return transformer(molecules)
+    
+    def smiles2fingerprint(self, smiles) -> np.ndarray:
+        molecules = smiles.swifter.apply(lambda x: Chem.MolFromSmiles(x))
+
+        fingerprints = []
+        fingerprints.append(self.get_morgan_fingerprints(molecules, **self.cfg.morgan))
+        fingerprints.append(self.get_avalon_fingerprints(molecules, **self.cfg.avalon))
+        fingerprints.append(self.get_erg_fingerprints(molecules))
+        fingerprints.append(self.get_rdkit_features(molecules))
+        fingerprints.append(self.get_gin_supervised_masking(molecules))
 
         return np.concatenate(fingerprints, axis=1)
