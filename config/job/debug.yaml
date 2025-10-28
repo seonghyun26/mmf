@@ -1,4 +1,5 @@
 max_seed: 5
+debug: true
 tasks:
 - caco2_wang
-# - bbb_martins
+- hia_hou

@@ -20,12 +20,10 @@ class GradientBoost(ModelWrapper):
         super().__init__(cfg, task)        
 
         if self.task_type == "regression":
-            params = OmegaConf.to_container(self.cfg.model.params, resolve=True)
-            self.model = GradientBoostingRegressor(**params)
+            self.model = GradientBoostingRegressor(**self.cfg.model.params)
 
         elif self.task_type == "binary":
-            params = OmegaConf.to_container(self.cfg.model.params, resolve=True)
-            self.model = GradientBoostingClassifier(**params)
+            self.model = GradientBoostingClassifier(**self.cfg.model.params)
         
         else:
             raise ValueError(f"Invalid task type: {self.task_type}")

@@ -1,4 +1,5 @@
 max_seed: 5
+debug: false
 tasks:
 - cyp2d6_veith
 - cyp3a4_veith
