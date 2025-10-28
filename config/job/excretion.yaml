@@ -1,4 +1,5 @@
 max_seed: 5
+debug: false
 tasks:
 - half_life_obach
 - clearance_microsome_az

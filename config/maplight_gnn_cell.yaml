@@ -1,4 +1,0 @@
-defaults:
-- model: maplight_gnn_cell
-- job: all
-- hydra

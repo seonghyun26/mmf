@@ -6,7 +6,7 @@ import catboost as cb
 
 from tqdm import tqdm
 from typing import Any
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, open_dict
 from sklearn import preprocessing
 
 from .base import ModelWrapper
@@ -19,13 +19,15 @@ class Maplight(ModelWrapper):
         super().__init__(cfg, task)
 
         if self.task_type == "regression":
-            params = OmegaConf.to_container(self.cfg.model.params, resolve=True)
-            params['loss_function'] = 'MAE'
-            self.model = cb.CatBoostRegressor(**params)
+            with open_dict(self.cfg):
+                self.cfg.model.params.loss_function = 'MAE'
+            self.model = cb.CatBoostRegressor(**self.cfg.model.params)
+        
         elif self.task_type == "binary":
-            params = OmegaConf.to_container(self.cfg.model.params, resolve=True)
-            params['loss_function'] = 'Logloss'
-            self.model = cb.CatBoostClassifier(**params)
+            with open_dict(self.cfg):
+                self.cfg.model.params.loss_function = 'Logloss'
+            self.model = cb.CatBoostClassifier(**self.cfg.model.params)
+        
         else:
             raise ValueError(f"Invalid task type: {self.task_type}")
     
