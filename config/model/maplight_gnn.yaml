@@ -16,8 +16,12 @@ fingerprint:
   - avalon
   - erg
   - rdkit
+  - pretrained
   morgan:
     nBits: 1024
     radius: 2
   avalon:
     nBits: 1024
+  pretrained:
+    name: PretrainedDGLTransformer
+    kind: gin_supervised_masking

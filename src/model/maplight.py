@@ -36,8 +36,10 @@ class Maplight(ModelWrapper):
         plot_dir = f"{hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}/{self.task}"
         name = self.benchmark['name']
         train, test = self.benchmark['train_val'], self.benchmark['test']
-        X_train = FingerprintManager(self.cfg.model.fingerprint, self.task, self.cfg.model.name, "train", train['Drug']).fingerprints
-        X_test = FingerprintManager(self.cfg.model.fingerprint, self.task, self.cfg.model.name, "test", test['Drug']).fingerprints
+        train_fingerprint_manager = FingerprintManager(self.cfg.model.fingerprint, self.task, "train", train['Drug'])
+        test_fingerprint_manager = FingerprintManager(self.cfg.model.fingerprint, self.task, "test", test['Drug'])
+        X_train = train_fingerprint_manager.fingerprints
+        X_test = test_fingerprint_manager.fingerprints
         
         results = {}
         predictions_list = []
