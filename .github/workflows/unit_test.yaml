@@ -7,6 +7,8 @@ on:
   pull_request:
     branches:
       - main
+    branches-ignore:
+      - dev
 
 jobs:
   run-configs:
