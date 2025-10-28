@@ -1,0 +1,28 @@
+name: maplight_gnn_ours
+mode: pretrain
+format: cbm
+pretrain:
+  task: toymix
+params:
+  random_strength: 2
+  verbose: 0
+  task_type: 'GPU'
+  devices: '0'
+fit:
+  plot: True
+fingerprint:
+  cachedir: /home/shpark/prj-kmelloddy/benchmark/data/cache
+  cachefile: fingerprint
+  type:
+  - morgan
+  - avalon
+  - erg
+  - rdkit
+  morgan:
+    nBits: 1024
+    radius: 2
+  avalon:
+    nBits: 1024
+  pretrained:
+    name: PretrainedDGLTransformer
+    kind: gin_supervised_masking

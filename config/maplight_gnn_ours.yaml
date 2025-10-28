@@ -1,0 +1,4 @@
+defaults:
+- model: maplight_gnn_ours
+- job: all
+- hydra
