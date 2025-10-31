@@ -1,4 +1,4 @@
-cd ../
+cd ../../
 
 CUDA_VISIBLE_DEVICES=$1 python ./main.py \
-    --config-name minimol_big
+    --config-name minimol

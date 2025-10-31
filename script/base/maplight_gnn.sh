@@ -1,4 +1,4 @@
-cd ../
+cd ../../
 
 CUDA_VISIBLE_DEVICES=$1 python ./main.py \
-    --config-name histgradientboost
+    --config-name maplight_gnn

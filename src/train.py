@@ -54,7 +54,7 @@ def run_model(cfg: DictConfig):
                     entity="eddy26",
                     config=OmegaConf.to_container(cfg_copy, resolve=True),
                     dir=output_dir,
-                    tags=[cfg.model.name, 'debug']
+                    tags=["debug", cfg.model.name,]
                 )
                 
                 # Fine-tune model
@@ -76,7 +76,7 @@ def run_model(cfg: DictConfig):
                     entity="eddy26",
                     config=OmegaConf.to_container(cfg_copy, resolve=True),
                     dir=output_dir,
-                    tags=[cfg.model.name]
+                    tags=["debug", cfg.model.name]
                 )
                 
                 # Train model and get results
@@ -103,6 +103,7 @@ def run_model(cfg: DictConfig):
                         entity="eddy26",
                         config=OmegaConf.to_container(cfg_copy, resolve=True),
                         dir=output_dir,
+                        tags=[cfg.model.name]
                     )
                     
                     # Fine-tune model
@@ -124,6 +125,7 @@ def run_model(cfg: DictConfig):
                         entity="eddy26",
                         config=OmegaConf.to_container(cfg_copy, resolve=True),
                         dir=output_dir,
+                        tags=[cfg.model.name]
                     )
                     
                     # Train model and get results
