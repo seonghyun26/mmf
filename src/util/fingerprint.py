@@ -33,12 +33,13 @@ PRETRAINED_DGL_MODELS = [
 
 
 class FingerprintManager:
-    def __init__(self, cfg: OmegaConf, taskname: str, split: str, data:pd.Series = None):
+    def __init__(self, cfg: OmegaConf, taskname: str, split: str, data:pd.Series = None, model = None):
         RDLogger.DisableLog('rdApp.*')
         self.cfg = cfg
         self.taskname = taskname
         self.split = split
         self.data = data
+        self.model = model
         
         self._fingerprints = self.smiles2fingerprint(self.data)
 
@@ -126,19 +127,15 @@ class FingerprintManager:
             with open(cache_path, "rb") as f:
                 fingerprints_pretrained = pickle.load(f)
         else:
-            if self.cfg.pretrained.name == "PretrainedDGLTransformer":
-                logging.info(f"Using pretrained model from {self.cfg.pretrained.name}: {self.cfg.pretrained.kind}")
-                if self.cfg.pretrained.kind not in PRETRAINED_DGL_MODELS:
-                    raise ValueError(f"Unsupported pretrained model: {self.cfg.pretrained.kind}. Available models in DGL: {PRETRAINED_DGL_MODELS}")
-                transformer = PretrainedDGLTransformer(kind=self.cfg.pretrained.kind, dtype=float)
-                fingerprints_pretrained = transformer(molecules)
+            if self.model is not None:
+                fingerprints_pretrained = self.model(molecules)
             
-            elif self.cfg.pretrained.name == "OursPretrainedDGLTransformer":
+            elif self.cfg.pretrained.name == "PretrainedDGLTransformer":
                 logging.info(f"Using pretrained model from {self.cfg.pretrained.name}: {self.cfg.pretrained.kind}")
                 if self.cfg.pretrained.kind not in PRETRAINED_DGL_MODELS:
                     raise ValueError(f"Unsupported pretrained model: {self.cfg.pretrained.kind}. Available models in DGL: {PRETRAINED_DGL_MODELS}")
-                # transformer = PretrainedDGLTransformerOurs(kind=self.cfg.pretrained.kind, dtype=float)
-                # fingerprints_pretrained = transformer(molecules)
+                self.model = PretrainedDGLTransformer(kind=self.cfg.pretrained.kind, dtype=float)
+                fingerprints_pretrained = self.model(molecules)
             
             else:
                 raise ValueError(f"Unsupported pretrained model: {self.cfg.pretrained.name}. Available model: {PRETRAINED_MODELS}")
